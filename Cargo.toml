@@ -1,0 +1,20 @@
+[package]
+name = "qoi"
+authors = ["John Peel <john@dgby.org>"]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "An implementation of Phoboslab's QOI image format."
+repository = "https://github.com/JohnPeel/qoi"
+
+[features]
+default = ["image"]
+
+[dependencies]
+log = { version = "0.4" }
+image = { version = "0.23", optional = true, default-features = false }
+byteorder = { version = "1.4" }
+
+[dev-dependencies]
+image = { version = "0.23", default-features = false, features = ["png"] }
+env_logger = "0.9"
