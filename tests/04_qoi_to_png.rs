@@ -16,7 +16,7 @@ fn compare_bytes(l: &[u8], r: &[u8]) {
 
 #[test]
 #[ignore = "Cannot get image's png support to output the large pngs created by stb."]
-fn qoi_to_raw() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+fn qoi_to_png() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     env_logger::init();
 
     let decoder = QoiDecoder::<_, 4>::new(INITIAL)?;

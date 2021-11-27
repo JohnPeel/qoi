@@ -39,6 +39,10 @@ impl<R: io::Read, const CHANNELS: usize> QoiReader<R, CHANNELS> {
     pub fn decode(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let mut read = 0;
         for chunk in buf.chunks_exact_mut(CHANNELS) {
+            if self.size - self.total_read == 4 {
+                break;
+            }
+
             if self.run > 0 {
                 self.run -= 1;
             } else {
@@ -103,7 +107,7 @@ impl<R: io::Read, const CHANNELS: usize> QoiReader<R, CHANNELS> {
             let padding = &mut [0; 4];
             self.reader.read_exact(padding)?;
             self.total_read += 4;
-            assert_eq!(padding, QoiConsts::PADDING, "invalid padding: {:x?}", dbg!(&padding));
+            assert_eq!(padding, QoiConsts::PADDING, "invalid padding: {:x?}", padding);
         }
 
         Ok(read)
