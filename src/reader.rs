@@ -5,14 +5,15 @@ use byteorder::ReadBytesExt;
 
 use crate::consts::*;
 
-pub struct QoiReader<R: io::Read, const CHANNELS: usize> {
+pub struct QoiReader<R: io::Read> {
     reader: R,
 
     #[allow(unused)]
-    width: usize,
+    width: u32,
     #[allow(unused)]
-    height: usize,
-    size: usize,
+    height: u32,
+    channels: u8,
+
     total_read: usize,
 
     run: usize,
@@ -20,14 +21,15 @@ pub struct QoiReader<R: io::Read, const CHANNELS: usize> {
     index: [[u8; 4]; QoiConsts::INDEX_SIZE]
 }
 
-impl<R: io::Read, const CHANNELS: usize> QoiReader<R, CHANNELS> {
-    pub(crate) fn new(reader: R, width: usize, height: usize, size: usize) -> Self {
+impl<R: io::Read> QoiReader<R> {
+    pub(crate) fn new(reader: R, width: u32, height: u32, channels: u8) -> Self {
         Self {
             reader,
 
             width,
             height,
-            size,
+            channels,
+            
             total_read: 0,
 
             run: 0,
@@ -38,11 +40,7 @@ impl<R: io::Read, const CHANNELS: usize> QoiReader<R, CHANNELS> {
 
     pub fn decode(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         let mut read = 0;
-        for chunk in buf.chunks_exact_mut(CHANNELS) {
-            if self.size - self.total_read == 4 {
-                break;
-            }
-
+        for chunk in buf.chunks_exact_mut(self.channels as usize) {
             if self.run > 0 {
                 self.run -= 1;
             } else {
@@ -58,23 +56,23 @@ impl<R: io::Read, const CHANNELS: usize> QoiReader<R, CHANNELS> {
                     self.total_read += 1;
                     self.run = ((((first_byte & 0x1f) as usize) << 8) | second_byte as usize) + 32;
                 } else if first_byte & QoiConsts::MASK_2 == QoiConsts::DIFF_8 {
-                    self.pixel[0] = (self.pixel[0] as i8).wrapping_add((((first_byte >> 4) & 0x03) as i8) - 1) as u8;
-                    self.pixel[1] = (self.pixel[1] as i8).wrapping_add((((first_byte >> 2) & 0x03) as i8) - 1) as u8;
-                    self.pixel[2] = (self.pixel[2] as i8).wrapping_add(((first_byte & 0x03) as i8) - 1) as u8;
+                    self.pixel[0] = (self.pixel[0] as i8).wrapping_add((((first_byte >> 4) & 0x03) as i8) - 2) as u8;
+                    self.pixel[1] = (self.pixel[1] as i8).wrapping_add((((first_byte >> 2) & 0x03) as i8) - 2) as u8;
+                    self.pixel[2] = (self.pixel[2] as i8).wrapping_add(((first_byte & 0x03) as i8) - 2) as u8;
                 } else if first_byte & QoiConsts::MASK_3 == QoiConsts::DIFF_16 {
                     let second_byte = self.reader.read_u8()?;
                     self.total_read += 1;
-                    self.pixel[0] = (self.pixel[0] as i8).wrapping_add(((first_byte & 0x1f) as i8) - 15) as u8;
-                    self.pixel[1] = (self.pixel[1] as i8).wrapping_add(((second_byte >> 4) as i8) - 7) as u8;
-                    self.pixel[2] = (self.pixel[2] as i8).wrapping_add(((second_byte & 0x0f) as i8) - 7) as u8;
+                    self.pixel[0] = (self.pixel[0] as i8).wrapping_add(((first_byte & 0x1f) as i8) - 16) as u8;
+                    self.pixel[1] = (self.pixel[1] as i8).wrapping_add(((second_byte >> 4) as i8) - 8) as u8;
+                    self.pixel[2] = (self.pixel[2] as i8).wrapping_add(((second_byte & 0x0f) as i8) - 8) as u8;
                 } else if first_byte & QoiConsts::MASK_4 == QoiConsts::DIFF_24 {
                     let second_byte = self.reader.read_u8()?;
                     let third_byte = self.reader.read_u8()?;
                     self.total_read += 2;
-                    self.pixel[0] = (self.pixel[0] as i8).wrapping_add(((((first_byte & 0x0f) << 1) | (second_byte >> 7)) as i8) - 15) as u8;
-                    self.pixel[1] = (self.pixel[1] as i8).wrapping_add((((second_byte & 0x7c) >> 2) as i8) - 15) as u8;
-                    self.pixel[2] = (self.pixel[2] as i8).wrapping_add(((((second_byte & 0x03) << 3) | ((third_byte & 0xe0) >> 5)) as i8) - 15) as u8;
-                    self.pixel[3] = (self.pixel[3] as i8).wrapping_add(((third_byte & 0x1f) as i8) - 15) as u8;
+                    self.pixel[0] = (self.pixel[0] as i8).wrapping_add(((((first_byte & 0x0f) << 1) | (second_byte >> 7)) as i8) - 16) as u8;
+                    self.pixel[1] = (self.pixel[1] as i8).wrapping_add((((second_byte & 0x7c) >> 2) as i8) - 16) as u8;
+                    self.pixel[2] = (self.pixel[2] as i8).wrapping_add(((((second_byte & 0x03) << 3) | ((third_byte & 0xe0) >> 5)) as i8) - 16) as u8;
+                    self.pixel[3] = (self.pixel[3] as i8).wrapping_add(((third_byte & 0x1f) as i8) - 16) as u8;
                 } else if first_byte & QoiConsts::MASK_4 == QoiConsts::COLOR {
                     if first_byte & QoiConsts::COLOR_R != 0 {
                         self.pixel[0] = self.reader.read_u8()?;
@@ -99,22 +97,22 @@ impl<R: io::Read, const CHANNELS: usize> QoiReader<R, CHANNELS> {
                 self.index[QoiConsts::pixel_hash(&self.pixel)].copy_from_slice(&self.pixel);
             }
 
-            chunk[..CHANNELS].copy_from_slice(&self.pixel[..CHANNELS]);
-            read += CHANNELS;
+            chunk[..self.channels as usize].copy_from_slice(&self.pixel[..self.channels as usize]);
+            read += self.channels as usize;
         }
 
-        if self.size - self.total_read == 4 {
-            let padding = &mut [0; 4];
-            self.reader.read_exact(padding)?;
-            self.total_read += 4;
-            assert_eq!(padding, QoiConsts::PADDING, "invalid padding: {:x?}", padding);
-        }
+        // FIXME: Size is un-knowable now?
+        // Maybe I shouldn't check padding?
+        let padding = &mut [0; 4];
+        self.reader.read_exact(padding)?;
+        self.total_read += 4;
+        assert_eq!(padding, QoiConsts::PADDING, "invalid padding: {:x?}", padding);
 
         Ok(read)
     }
 }
 
-impl<R: io::Read, const CHANNELS: usize> io::Read for QoiReader<R, CHANNELS> {
+impl<R: io::Read> io::Read for QoiReader<R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         QoiReader::decode(self, buf)
     }
