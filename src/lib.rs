@@ -1,11 +1,15 @@
 
 mod consts;
 mod error;
-mod reader;
+mod color_space;
+mod chunk;
 mod decoder;
 mod encoder;
 
-use error::DecoderError;
-use reader::QoiReader;
+#[cfg(feature = "image")]
+mod image;
+
+pub use error::DecoderError;
+pub use color_space::ColorSpace;
 pub use decoder::QoiDecoder;
 pub use encoder::QoiEncoder;

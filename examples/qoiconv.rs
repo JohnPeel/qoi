@@ -3,7 +3,7 @@ use std::{fs::File, io::BufReader, path::PathBuf};
 
 use clap::{Parser, ValueHint};
 use image::{ImageDecoder, ColorType, GenericImageView};
-use qoi::{QoiDecoder, QoiEncoder};
+use qoi::{ColorSpace, QoiDecoder, QoiEncoder};
 
 #[derive(Parser)]
 #[clap(name = "qoiconv", author = "John Peel <john@dgby.org>")]
@@ -44,19 +44,19 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
             match color_type {
                 ColorType::Rgb8 => {
                     let buf = dynamic_image.as_rgb8().unwrap();
-                    encoder.encode(buf, width, height, 3)?;
+                    encoder.encode(buf, width, height, 3, ColorSpace::Srgb)?;
                 },
                 ColorType::Rgba8 => {
                     let buf = dynamic_image.as_rgba8().unwrap();
-                    encoder.encode(buf, width, height, 4)?;
+                    encoder.encode(buf, width, height, 4, ColorSpace::Srgb)?;
                 },
                 color_type if color_type.bytes_per_pixel() == 3 && !color_type.has_alpha() => {
                     let buf = dynamic_image.to_rgb8();
-                    encoder.encode(&buf, width, height, 3)?;
+                    encoder.encode(&buf, width, height, 3, ColorSpace::Srgb)?;
                 }
                 color_type if color_type.bytes_per_pixel() == 4 && color_type.has_alpha() => {
                     let buf = dynamic_image.to_rgba8();
-                    encoder.encode(&buf, width, height, 4)?;
+                    encoder.encode(&buf, width, height, 4, ColorSpace::Srgb)?;
                 },
                 _ => return Err(format!("INPUT file has invalid color type {:?}.", color_type).into())
             }

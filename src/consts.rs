@@ -21,6 +21,14 @@ impl QoiConsts {
     pub const MASK_3: u8 = 0b11100000;
     pub const MASK_4: u8 = 0b11110000;
 
+    pub const SRGB: u8 = 0b00000000;
+    pub const SRGB_LINEAR_ALPHA: u8 = 0x00000001;
+    pub const LINEAR: u8 = 0b00001111;
+    pub const LINEAR_R: u8 = 0b00001000;
+    pub const LINEAR_G: u8 = 0b00000100;
+    pub const LINEAR_B: u8 = 0b00000010;
+    pub const LINEAR_A: u8 = 0b00000001;
+
     pub const INDEX_SIZE: usize = 64;
     pub const PADDING_LENGTH: usize = 4;
     pub const PADDING: &'static [u8; Self::PADDING_LENGTH] = &[0; Self::PADDING_LENGTH];

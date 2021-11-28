@@ -2,17 +2,11 @@
 use image::ImageEncoder;
 use qoi::{self, QoiEncoder};
 
+mod common;
+use common::compare_bytes;
+
 const INITIAL: &[u8] = include_bytes!("./image.raw");
 const EXPECTED: &[u8] = include_bytes!("./image.qoi");
-
-fn compare_bytes(l: &[u8], r: &[u8]) {
-    assert_eq!(l.len(), r.len());
-    for i in 0..l.len() {
-        if l[i] != r[i] {
-            panic!("Byte {} (0x{:X}) doesn't match: 0x{:X} != 0x{:X}", i, i, l[i], r[i]);
-        }
-    }
-}
 
 #[test]
 fn raw_to_qoi() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {

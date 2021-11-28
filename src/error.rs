@@ -3,14 +3,20 @@ use std::{error, fmt, io};
 
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DecoderError {
-    SignatureInvalid
+    InvalidSignature([u8; 4]),
+    InvalidChannelCount(u8),
+    InvalidPadding([u8; 4]),
 }
 
 impl fmt::Display for DecoderError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            DecoderError::SignatureInvalid =>
-                f.write_str("QOI signature not found"),
+            DecoderError::InvalidSignature(signature) =>
+                write!(f, "QOI header has invalid signature ({:?})", signature),
+            DecoderError::InvalidChannelCount(count) =>
+                write!(f, "QOI header has invalid channel count ({})", count),
+            DecoderError::InvalidPadding(padding) =>
+                write!(f, "QOI file has invalid padding ({:?})", padding)
         }
     }
 }
@@ -18,13 +24,6 @@ impl fmt::Display for DecoderError {
 impl From<DecoderError> for io::Error {
     fn from(e: DecoderError) -> Self {
         io::Error::new(io::ErrorKind::InvalidData, e)
-    }
-}
-
-#[cfg(feature = "image")]
-impl From<DecoderError> for image::ImageError {
-    fn from(e: DecoderError) -> image::ImageError {
-        image::ImageError::Decoding(image::error::DecodingError::new(image::error::ImageFormatHint::Name("QOI".to_string()), e))
     }
 }
 
