@@ -14,12 +14,18 @@ use qoi::{ColorSpace, QoiDecoder, QoiEncoder};
 struct Opts {
     #[clap(parse(from_os_str), value_hint = ValueHint::FilePath)]
     input: PathBuf,
+    #[clap(short, long)]
+    width: Option<u32>,
+    #[clap(short, long)]
+    height: Option<u32>,
     #[clap(parse(from_os_str), value_hint = ValueHint::FilePath)]
     output: PathBuf
 }
 
 #[cfg(feature = "std")]
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
+    use std::io::Read;
+
     env_logger::init();
 
     let opts: Opts = Opts::parse();
@@ -29,6 +35,13 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     }
 
     match (opts.input.extension(), opts.output.extension()) {
+        (Some(input_ext), Some(output_ext)) if input_ext == "qoi" && output_ext == "raw" => {
+            let decoder = QoiDecoder::new(BufReader::new(File::open(opts.input)?))?;
+            let mut buf: Vec<u8> = vec![0; decoder.total_bytes() as usize];
+            decoder.read_image(&mut buf)?;
+
+            std::fs::File::create(opts.output)?.write_all(&buf)?;
+        },
         (Some(ext), _) if ext == "qoi" => {
             let decoder = QoiDecoder::new(BufReader::new(File::open(opts.input)?))?;
             let (width, height) = decoder.dimensions();
@@ -37,6 +50,16 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
             decoder.read_image(&mut buf)?;
 
             image::save_buffer(opts.output, &buf, width, height, color_type)?;
+        },
+        (Some(input_ext), Some(output_ext)) if input_ext == "raw" && output_ext == "qoi" => {
+            let mut buf = vec![];
+            std::fs::File::open(opts.input)?.read_to_end(&mut buf)?;
+
+            let mut output = std::fs::File::create(opts.output)?;
+            let mut encoder = QoiEncoder::new(&mut output);
+            // FIXME: Add proper error handling to the width and height.
+            let (width, height) = (opts.width.expect("Width must be supplied with raw input."), opts.height.expect("Height must be supplied with raw input."));
+            encoder.encode(&buf, width, height, 4, ColorSpace::Srgb)?;
         },
         (_, Some(ext)) if ext == "qoi" => {
             let dynamic_image = image::open(opts.input)?;
