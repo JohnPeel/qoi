@@ -1,10 +1,14 @@
 
-use std::{fs::File, io::BufReader, path::PathBuf};
-
+#[cfg(feature = "std")]
+use std::{fs::File, io::{BufReader, Write}, path::PathBuf};
+#[cfg(feature = "std")]
 use clap::{Parser, ValueHint};
+#[cfg(feature = "std")]
 use image::{ImageDecoder, ColorType, GenericImageView};
+#[cfg(feature = "std")]
 use qoi::{ColorSpace, QoiDecoder, QoiEncoder};
 
+#[cfg(feature = "std")]
 #[derive(Parser)]
 #[clap(name = "qoiconv", author = "John Peel <john@dgby.org>")]
 struct Opts {
@@ -14,6 +18,7 @@ struct Opts {
     output: PathBuf
 }
 
+#[cfg(feature = "std")]
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
     env_logger::init();
 
@@ -39,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
             let color_type = dynamic_image.color();
 
             let mut output = std::fs::File::create(opts.output)?;
-            let encoder = QoiEncoder::new(&mut output);
+            let mut encoder = QoiEncoder::new(&mut output);
 
             match color_type {
                 ColorType::Rgb8 => {
@@ -61,8 +66,18 @@ fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
                 _ => return Err(format!("INPUT file has invalid color type {:?}.", color_type).into())
             }
         },
+        (_, Some(ext)) if ext == "raw" => {
+            let buffer = image::open(opts.input)?.to_rgba8();
+            std::fs::File::create(opts.output)?.write_all(&buffer)?;
+        },
+        // FIXME: Figure out a way to properly word this error.
         _ => return Err("One of INPUT or OUTPUT must be a .qoi file.".into())
     }
 
     Ok(())
+}
+
+#[cfg(not(feature = "std"))]
+fn main() {
+    eprintln!("This example requires std.");
 }

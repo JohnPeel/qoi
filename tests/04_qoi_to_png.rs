@@ -1,5 +1,8 @@
+#![allow(unused)]
 
+#[cfg(feature = "std")]
 use image::{ImageDecoder, png::{CompressionType, FilterType, PngEncoder}};
+
 use qoi::{self, QoiDecoder};
 
 mod common;
@@ -8,6 +11,7 @@ use common::compare_bytes;
 const INITIAL: &[u8] = include_bytes!("./image.qoi");
 const EXPECTED: &[u8] = include_bytes!("./image.png");
 
+#[cfg(feature = "std")]
 #[test]
 #[ignore = "Cannot get image's png support to output the large pngs created by stb."]
 fn qoi_to_png() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>> {
@@ -26,3 +30,8 @@ fn qoi_to_png() -> Result<(), Box<dyn std::error::Error + Send + Sync + 'static>
 
     Ok(())
 }
+
+#[cfg(not(feature = "std"))]
+#[test]
+#[ignore = "The png tests require std."]
+fn qoi_to_png() {}

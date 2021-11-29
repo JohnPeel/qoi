@@ -1,9 +1,13 @@
-
+#[cfg(feature = "std")]
 use std::io;
+#[cfg(not(feature = "std"))]
+use crate::io;
 
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::BigEndian;
+#[cfg(feature = "std")]
+use byteorder::ReadBytesExt;
 
-use crate::{ColorSpace, DecoderError, chunk::{QoiChunk, ReadChunk}, consts::*};
+use crate::{ColorSpace, DecoderError, QoiChunk, ReadQoiChunk, consts::*};
 
 pub struct QoiDecoder<R> {
     reader: R,
@@ -11,7 +15,7 @@ pub struct QoiDecoder<R> {
     width: u32,
     height: u32,
     channels: u8,
-    colorspace: u8,
+    color_space: u8,
 
     chunk_count: usize,
     chunks_read: usize,
@@ -22,43 +26,38 @@ pub struct QoiDecoder<R> {
 }
 
 impl<R: io::Read> QoiDecoder<R> {
-    pub fn new(reader: R) -> io::Result<Self> {
-        let mut decoder = QoiDecoder {
+    pub fn new(mut reader: R) -> Result<Self, DecoderError> {
+        let mut signature = [0; QoiConsts::MAGIC_LEN];
+        reader.read_exact(&mut signature)?;
+        if signature != QoiConsts::MAGIC {
+            return Err(DecoderError::InvalidSignature(signature));
+        }
+
+        let width = reader.read_u32::<BigEndian>()?;
+        let height = reader.read_u32::<BigEndian>()?;
+        let channels = reader.read_u8()?;
+        let color_space = reader.read_u8()?;
+
+        if !(QoiConsts::CHANNELS_MIN..=QoiConsts::CHANNELS_MAX).contains(&channels) {
+            return Err(DecoderError::InvalidChannelCount(channels));
+        }
+        
+        let decoder = QoiDecoder {
             reader,
 
-            width: 0,
-            height: 0,
-            channels: 0,
-            colorspace: 0,
+            width,
+            height,
+            channels,
+            color_space,
 
-            chunk_count: 0,
+            chunk_count: width as usize * height as usize,
             chunks_read: 0,
 
             run: 0,
             pixel: [0, 0, 0, 255],
             index: [[0; 4]; QoiConsts::INDEX_SIZE],
         };
-        decoder.read_metadata()?;
         Ok(decoder)
-    }
-
-    fn read_metadata(&mut self) -> io::Result<()> {
-        let mut signature = [0; 4];
-        self.reader.read_exact(&mut signature)?;
-
-        if &signature == QoiConsts::MAGIC {
-            self.width = self.reader.read_u32::<BigEndian>()?;
-            self.height = self.reader.read_u32::<BigEndian>()?;
-            self.channels = self.reader.read_u8()?;
-            if self.channels > 4 || self.channels < 3 {
-                return Err(DecoderError::InvalidChannelCount(self.channels).into());
-            }
-            self.colorspace = self.reader.read_u8()?;
-            self.chunk_count = self.width as usize * self.height as usize;
-            Ok(())
-        } else {
-            Err(DecoderError::InvalidSignature(signature).into())
-        }
     }
 
     pub fn dimensions(&self) -> (u32, u32) {
@@ -70,10 +69,10 @@ impl<R: io::Read> QoiDecoder<R> {
     }
 
     pub fn color_space(&self) -> ColorSpace {
-        self.colorspace.into()
+        self.color_space.into()
     }
 
-    pub fn decode(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+    pub fn decode(&mut self, buf: &mut [u8]) -> Result<usize, DecoderError> {
         let mut read = 0;
         for chunk in buf.chunks_exact_mut(self.channels as usize).take(self.chunk_count - self.chunks_read) {
             if self.run > 0 {
@@ -119,8 +118,8 @@ impl<R: io::Read> QoiDecoder<R> {
             let mut padding = [0; 4];
             self.reader.read_exact(&mut padding)?;
             self.chunks_read += 1;
-            if padding != *QoiConsts::PADDING {
-                return Err(DecoderError::InvalidPadding(padding).into());
+            if padding != QoiConsts::PADDING {
+                return Err(DecoderError::InvalidPadding(padding));
             }
         }
 

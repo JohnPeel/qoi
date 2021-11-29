@@ -1,28 +1,33 @@
 
+#[cfg(feature = "std")]
 use std::io;
+#[cfg(not(feature = "std"))]
+use crate::io;
 
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::BigEndian;
+#[cfg(feature = "std")]
+use byteorder::WriteBytesExt;
 
-use crate::{ColorSpace, chunk::{QoiChunk, WriteChunk}, consts::*};
+use crate::{ColorSpace, EncoderError, QoiChunk, WriteQoiChunk, consts::*};
 
 pub struct QoiEncoder<'a, W: 'a> {
-    writer: &'a mut W
+    writer: &'a mut W,
 }
 
-impl<'a, W: io::Write + 'a> QoiEncoder<'a, W> {
+impl<'a, W: 'a + io::Write> QoiEncoder<'a, W> {
     pub fn new(writer: &'a mut W) -> Self {
         Self { writer }
     }
 
     pub fn encode(
-        self,
+        &mut self,
         buf: &[u8],
         width: u32,
         height: u32,
         channels: u8,
         color_space: ColorSpace
-    ) -> io::Result<()> {
-        self.writer.write_all(QoiConsts::MAGIC)?;
+    ) -> Result<(), EncoderError> {
+        self.writer.write_all(&QoiConsts::MAGIC)?;
         self.writer.write_u32::<BigEndian>(width)?;
         self.writer.write_u32::<BigEndian>(height)?;
         self.writer.write_u8(channels)?;
@@ -90,7 +95,7 @@ impl<'a, W: io::Write + 'a> QoiEncoder<'a, W> {
             }
         }
 
-        self.writer.write_all(QoiConsts::PADDING)?;
+        self.writer.write_all(&QoiConsts::PADDING)?;
 
         Ok(())
     }

@@ -1,9 +1,9 @@
 
-pub(crate) use read::ReadChunk;
-pub(crate) use write::WriteChunk;
+pub use read::ReadQoiChunk;
+pub use write::WriteQoiChunk;
 
 #[derive(Debug)]
-pub(crate) enum QoiChunk {
+pub enum QoiChunk {
     Index(u8),
     Run8(u8),
     Run16(u16),
@@ -14,20 +14,24 @@ pub(crate) enum QoiChunk {
 }
 
 mod read {
+    #[cfg(feature = "std")]
     use std::io;
+    #[cfg(not(feature = "std"))]
+    use crate::io;
 
-    use byteorder::ReadBytesExt;
-
-    use crate::consts::QoiConsts;
+    use crate::{DecoderError, consts::QoiConsts};
     use super::QoiChunk;
 
-    pub(crate) trait ReadChunk {
-        fn read_qoi_chunk(&mut self) -> io::Result<QoiChunk>;
+    pub trait ReadQoiChunk {
+        fn read_qoi_chunk(&mut self) -> Result<QoiChunk, DecoderError>;
     }
-
-    impl<R: io::Read> ReadChunk for R {
-        fn read_qoi_chunk(&mut self) -> io::Result<QoiChunk> {
+    impl<R: io::Read> ReadQoiChunk for R {
+        #[inline]
+        fn read_qoi_chunk(&mut self) -> Result<QoiChunk, DecoderError> {
+            #[cfg(feature = "std")]
+            use byteorder::ReadBytesExt;
             use QoiChunk::*;
+
             let first_byte = self.read_u8()?;
 
             let chunk = if first_byte & QoiConsts::MASK_2 == QoiConsts::INDEX {
@@ -59,7 +63,7 @@ mod read {
                     if first_byte & QoiConsts::COLOR_A != 0 { Some(self.read_u8()?) } else { None },
                 )
             } else {
-                return Err(io::Error::new(io::ErrorKind::InvalidInput, "Reader did not return a valid QOI chunk."));
+                return Err(DecoderError::InvalidChunkStart(first_byte));
             };
 
             log::trace!("{:?}", chunk);
@@ -69,21 +73,25 @@ mod read {
 }
 
 mod write {
+    #[cfg(feature = "std")]
     use std::io;
+    #[cfg(not(feature = "std"))]
+    use crate::io;
 
-    use byteorder::WriteBytesExt;
-
-    use crate::consts::QoiConsts;
+    use crate::{consts::QoiConsts, error::EncoderError};
     use super::QoiChunk;
 
-    pub(crate) trait WriteChunk {
-        fn write_qoi_chunk(&mut self, chunk: QoiChunk) -> io::Result<usize>;
+    pub trait WriteQoiChunk {
+        fn write_qoi_chunk(&mut self, chunk: QoiChunk) -> Result<usize, EncoderError>;
     }
 
-    impl<W: io::Write> WriteChunk for W {
+    impl<W: io::Write> WriteQoiChunk for W {
         #[inline]
-        fn write_qoi_chunk(&mut self, chunk: QoiChunk) -> io::Result<usize> {
+        fn write_qoi_chunk(&mut self, chunk: QoiChunk) -> Result<usize, EncoderError> {
+            #[cfg(feature = "std")]
+            use byteorder::WriteBytesExt;
             use QoiChunk::*;
+
             let mut wrote = 1;        
             match chunk {
                 Index(pos) => self.write_u8(QoiConsts::INDEX | pos)?,

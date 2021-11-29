@@ -2,7 +2,7 @@
 pub struct QoiConsts;
 
 impl QoiConsts {
-    pub const MAGIC: &'static [u8; 4] = b"qoif";
+    pub const MAGIC: [u8; Self::MAGIC_LEN] = *b"qoif";
 
     pub const INDEX: u8 = 0b00000000;
     pub const RUN_8: u8 = 0b01000000;
@@ -29,9 +29,13 @@ impl QoiConsts {
     pub const LINEAR_B: u8 = 0b00000010;
     pub const LINEAR_A: u8 = 0b00000001;
 
+    pub const MAGIC_LEN: usize = 4;
     pub const INDEX_SIZE: usize = 64;
     pub const PADDING_LENGTH: usize = 4;
-    pub const PADDING: &'static [u8; Self::PADDING_LENGTH] = &[0; Self::PADDING_LENGTH];
+    pub const PADDING:[u8; Self::PADDING_LENGTH] = [0; Self::PADDING_LENGTH];
+
+    pub const CHANNELS_MIN: u8 = 3;
+    pub const CHANNELS_MAX: u8 = 4;
 
     #[inline(always)]
     pub fn pixel_hash(pixel: &[u8]) -> usize {
